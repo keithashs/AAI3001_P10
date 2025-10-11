@@ -1,0 +1,79 @@
+# AAI3001 Phase 1: Fashion Product Type Classifier - Requirements
+# Group 10 - Deep Learning Computer Vision Project
+# Python 3.8+ required
+
+# ============================================================================
+# Core Deep Learning Frameworks
+# ============================================================================
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# ============================================================================
+# Computer Vision & Image Processing
+# ============================================================================
+opencv-python>=4.8.0
+pillow>=9.0.0
+
+# ============================================================================
+# Scientific Computing & Data Analysis
+# ============================================================================
+numpy>=1.23.0
+pandas>=1.5.0
+scipy>=1.9.0
+
+# ============================================================================
+# Machine Learning & Metrics
+# ============================================================================
+scikit-learn>=1.2.0
+
+# ============================================================================
+# Visualization
+# ============================================================================
+matplotlib>=3.5.0
+seaborn>=0.12.0
+
+# ============================================================================
+# Progress Bars & Utilities
+# ============================================================================
+tqdm>=4.65.0
+
+# ============================================================================
+# GUI Framework (Tkinter - usually pre-installed with Python)
+# ============================================================================
+# Note: tkinter is typically included with Python installations
+# If missing on Linux, install via: sudo apt-get install python3-tk
+tkinterdnd2>=0.4.3
+
+# ============================================================================
+# Jupyter Notebook (for training notebook)
+# ============================================================================
+notebook>=6.5.0
+ipykernel>=6.20.0
+ipywidgets>=8.0.0
+
+# ============================================================================
+# Additional Utilities
+# ============================================================================
+# Kaggle API (for dataset download)
+kaggle>=1.5.0
+
+# TIMM - PyTorch Image Models (optional, for ConvNeXt support)
+timm>=0.9.0
+
+# ============================================================================
+# Optional: CUDA Support
+# ============================================================================
+# For GPU acceleration, ensure you have:
+# - NVIDIA GPU with CUDA support
+# - CUDA Toolkit 11.7+ installed
+# - cuDNN 8.5+ installed
+# PyTorch with CUDA can be installed via:
+# pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
+# ============================================================================
+# Development Tools (Optional)
+# ============================================================================
+# black>=23.0.0  # Code formatter
+# flake8>=6.0.0  # Linter
+# pytest>=7.0.0  # Testing framework
