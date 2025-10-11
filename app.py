@@ -10,7 +10,8 @@ except Exception:
     HAS_DND = False
 
 from PIL import Image, ImageTk
-import pickle, os, io
+import pickle, os, io, time
+from pathlib import Path
 import numpy as np
 
 import torch
@@ -25,10 +26,10 @@ import matplotlib.cm as cm
 
 
 # ----------------------
-# Load encoder + model
+# Load encoder + model (LOCAL PATHS - updated for Windows)
 # ----------------------
-WEIGHTS_PATH = "best_model_resnet50.pth"
-ENCODER_PATH = "le_product_type.pkl"
+WEIGHTS_PATH = r"d:/AAI3001/best_model_resnet50_extended.pth"
+ENCODER_PATH = r"d:/AAI3001/le_product_type_extended.pkl"
 
 if not os.path.exists(ENCODER_PATH):
     raise FileNotFoundError(f"Missing {ENCODER_PATH}")
@@ -40,22 +41,35 @@ with open(ENCODER_PATH, "rb") as f:
 
 N_CLASSES = len(le_product_type.classes_)
 
-# ResNet50 (matches training model!)
-model = models.resnet50(weights=None)
-in_features = model.fc.in_features
-model.fc = nn.Linear(in_features, N_CLASSES)
-state = torch.load(WEIGHTS_PATH, map_location="cpu", weights_only=False)
-model.load_state_dict(state)
-model.eval()  # keep on CPU; works fine
-
+# Label helpers (UPDATED to include Blazers + Waistcoat from your training)
+LABELS = list(le_product_type.classes_)
+LABEL_TO_IDX = {lab: i for i, lab in enumerate(LABELS)}
+TOPS_SET = {"Tshirts", "Shirts", "Sweatshirts", "Jackets", "Sweaters", "Tops", "Blazers", "Waistcoat"}
+BOTTOMS_SET = {"Jeans", "Trousers", "Shorts", "Skirts", "Track Pants", "Leggings", "Swimwear"}
+DRESSES_SET = set()  # No dresses in your dataset
 
 # ----------------------
-# Preprocessing
+# Model
+# ----------------------
+model = models.resnet50(weights=None)
+in_features = model.fc.in_features
+model.fc = nn.Sequential(
+    nn.Dropout(p=0.4),                     # ✅ added dropout like training
+    nn.Linear(in_features, len(le_product_type.classes_))
+)
+
+state = torch.load(WEIGHTS_PATH, map_location="cpu")
+model.load_state_dict(state)
+model.eval()  # keep on CPU
+
+# ----------------------
+# Preprocessing (match training eval pipeline)
 # ----------------------
 mean = [0.485, 0.456, 0.406]
 std  = [0.229, 0.224, 0.225]
 transform_eval = T.Compose([
-    T.Resize((224, 224)),
+    T.Resize(256),      # keep aspect ratio like training
+    T.CenterCrop(224),
     T.ToTensor(),
     T.Normalize(mean, std),
 ])
@@ -72,24 +86,117 @@ crop_rect_id = None
 crop_start = None
 crop_end = None
 
+# NEW: persist the last ROI you classified on (so Explain uses it even after crop clears)
+active_roi: Image.Image = None
+
+# ----------------------
+# UI Theming helpers
+# ----------------------
+APP_COLORS = {
+    "bg": "#0b1220",
+    "surface": "#0f172a",
+    "muted": "#1e293b",
+    "accent": "#22c55e",
+    "accent2": "#2563eb",
+    "warn": "#f59e0b",
+    "danger": "#ef4444",
+    "text": "#e5e7eb",
+    "subtext": "#94a3b8",
+    "panel": "#111827",
+}
+
+def create_styles(root):
+    style = ttk.Style(root)
+    # Use a platform-stable theme
+    try:
+        style.theme_use("clam")
+    except Exception:
+        pass
+
+    style.configure("App.TFrame", background=APP_COLORS["surface"]) 
+    style.configure("App.TLabel", background=APP_COLORS["surface"], foreground=APP_COLORS["text"], font=("Segoe UI", 11))
+    style.configure("Title.TLabel", background=APP_COLORS["surface"], foreground=APP_COLORS["text"], font=("Segoe UI", 18, "bold"))
+
+    # Buttons
+    style.configure("Accent.TButton", font=("Segoe UI", 12, "bold"), padding=8,
+                    background=APP_COLORS["accent"], foreground="#ffffff")
+    style.map("Accent.TButton",
+              background=[("active", "#16a34a")])
+
+    style.configure("Primary.TButton", font=("Segoe UI", 12, "bold"), padding=8,
+                    background=APP_COLORS["accent2"], foreground="#ffffff")
+    style.map("Primary.TButton",
+              background=[("active", "#1d4ed8")])
+
+    style.configure("Warn.TButton", font=("Segoe UI", 12, "bold"), padding=8,
+                    background=APP_COLORS["warn"], foreground="#111827")
+    style.map("Warn.TButton",
+              background=[("active", "#d97706")])
+
+    style.configure("Secondary.TButton", font=("Segoe UI", 12), padding=8,
+                    background=APP_COLORS["muted"], foreground=APP_COLORS["text"])
+    style.map("Secondary.TButton",
+              background=[("active", "#334155")])
+
+    # Treeview
+    style.configure("App.Treeview",
+                    background=APP_COLORS["panel"],
+                    fieldbackground=APP_COLORS["panel"],
+                    foreground=APP_COLORS["text"],
+                    bordercolor=APP_COLORS["muted"],
+                    rowheight=26)
+    style.configure("App.Treeview.Heading",
+                    background=APP_COLORS["muted"],
+                    foreground=APP_COLORS["text"],
+                    font=("Segoe UI", 11, "bold"))
+    style.map("App.Treeview.Heading", background=[("active", "#334155")])
+
+    # Progressbar
+    style.configure("App.Horizontal.TProgressbar", troughcolor=APP_COLORS["muted"], background=APP_COLORS["accent"]) 
+
+    return style
 
 # ----------------------
 # Classifier helper
 # ----------------------
-def classify_pil(pil_img, topk=5):
+def classify_pil(pil_img, topk=5, allow_labels=None, downweight_bottoms=1.0):
+    """
+    Classify a PIL image with optional label filtering and bottom-class downweighting.
+    - allow_labels: iterable of label strings to keep; if None or empty, keep all
+    - downweight_bottoms: multiply probabilities of bottom classes by this factor (<=1)
+    """
     x = transform_eval(pil_img).unsqueeze(0)
     with torch.no_grad():
         logits = model(x)
         probs = torch.softmax(logits, dim=1)[0]
-        k = min(topk, probs.numel())
-        conf, idx = torch.topk(probs, k=k)
-    labels = le_product_type.inverse_transform(idx.cpu().numpy())
+
+    adjusted = probs.clone()
+    # Apply category mask if provided
+    if allow_labels:
+        allow_idx = [LABEL_TO_IDX[l] for l in allow_labels if l in LABEL_TO_IDX]
+        if len(allow_idx) > 0:
+            mask = torch.zeros_like(adjusted)
+            mask[allow_idx] = 1.0
+            adjusted = adjusted * mask
+    # Downweight bottoms if requested
+    if downweight_bottoms < 1.0:
+        bottom_idx = [LABEL_TO_IDX[l] for l in LABELS if l in BOTTOMS_SET]
+        if bottom_idx:
+            adjusted[bottom_idx] = adjusted[bottom_idx] * downweight_bottoms
+
+    # If all-zero after masking, fall back to original probs
+    if float(adjusted.sum().item()) == 0.0:
+        adjusted = probs
+
+    k = min(int(topk), adjusted.numel())
+    conf, idx = torch.topk(adjusted, k=k)
+    labels = [LABELS[i] for i in idx.cpu().numpy().tolist()]
     conf = (conf.cpu().numpy() * 100.0).tolist()
     return list(zip(labels, conf)), int(idx[0].item())  # also return top-1 index
 
 
 # ----------------------
-# Grad-CAM helper (ConvNeXt-Tiny last stage)
+# Grad-CAM helper (ResNet-18 last conv layer)
 # ----------------------
 def gradcam_on_pil(pil_img, target_class=None, alpha=0.45):
     """
@@ -100,15 +207,14 @@ def gradcam_on_pil(pil_img, target_class=None, alpha=0.45):
     # 1) Preprocess
     x = transform_eval(pil_img).unsqueeze(0)  # [1,3,224,224]
 
-    # 2) Hook last layer in ResNet50 (layer4)
-    target_layer = model.layer4[-1]
+    # 2) Hook last conv layer in layer4[-1].conv2
+    target_layer = model.layer4[-1].conv2
     activations = []
     gradients = []
 
     def fwd_hook(module, inp, out):
         activations.append(out.detach())
 
-    # PyTorch new API
     if hasattr(target_layer, "register_full_backward_hook"):
         def bwd_hook(module, grad_in, grad_out):
             gradients.append(grad_out[0].detach())
@@ -127,8 +233,7 @@ def gradcam_on_pil(pil_img, target_class=None, alpha=0.45):
 
     # 4) Backward on the target logit
     model.zero_grad(set_to_none=True)
-    loss = logits[0, target_class]
-    loss.backward()
+    logits[0, target_class].backward()
 
     # 5) Get activations & gradients
     act = activations[0][0]    # [C,H,W]
@@ -169,9 +274,13 @@ def set_conf_table(pairs):
     for r in conf_tbl.get_children():
         conf_tbl.delete(r)
     for i, (lab, p) in enumerate(pairs, 1):
-        conf_tbl.insert("", "end", values=(i, lab, f"{p:.2f}%"))
+        # Visual confidence bar using block characters
+        blocks = int(round(p / 5))  # 0..20
+        bar = "█" * blocks
+        conf_tbl.insert("", "end", values=(i, lab, bar, f"{p:.2f}%"))
 
 def set_main_image(pil_img):
+    """Render the given PIL on the canvas and (intentionally) clear the crop box."""
     global display_img, display_tk, scale_x, scale_y, crop_rect_id, crop_start, crop_end
     display_img = pil_img.copy()
     c_w = max(canvas.winfo_width(), 1)
@@ -185,6 +294,7 @@ def set_main_image(pil_img):
         scale_y = orig_img.height / display_img.height
     else:
         scale_x = scale_y = 1.0
+    # clearing the crop rect is fine; we now persist ROI separately
     crop_rect_id = None
     crop_start = None
     crop_end = None
@@ -202,13 +312,14 @@ def handle_drop(filepath):
     load_and_show(fp)
 
 def load_and_show(filepath):
-    global orig_img
+    global orig_img, active_roi
     try:
         img = Image.open(filepath).convert("RGB")
     except Exception as ex:
         messagebox.showerror("Open Image Failed", str(ex))
         return
     orig_img = img
+    active_roi = None  # reset persistent ROI when a new image is loaded
     set_main_image(orig_img)
     set_conf_table([])
     headline.config(text=f"Loaded: {os.path.basename(filepath)}")
@@ -239,56 +350,144 @@ def on_mouse_up(event):
     if crop_rect_id is not None: crop_end = (event.x, event.y)
 
 def reset_crop():
-    global crop_rect_id, crop_start, crop_end
+    global crop_rect_id, crop_start, crop_end, active_roi
     if orig_img is None: return
     set_main_image(orig_img)
     set_conf_table([])
+    active_roi = None  # clear persisted ROI because you explicitly reset
     headline.config(text="Crop reset — full image restored.")
 
 
-# Helper to get current ROI (crop or whole image), plus mapping rect used
-def get_current_roi():
-    if orig_img is None:
+# --- ROI helpers ---
+def _roi_from_current_rect():
+    """Return ROI from the current crop rectangle, or None if no valid rect."""
+    if not (orig_img and crop_start and crop_end and crop_rect_id is not None):
         return None
-    if crop_start and crop_end and crop_rect_id is not None:
-        x0,y0 = crop_start; x1,y1 = crop_end
-        x0,x1 = sorted([x0,x1]); y0,y1 = sorted([y0,y1])
-        c_w = canvas.winfo_width(); c_h = canvas.winfo_height()
-        img_left = (c_w - display_img.width)//2; img_top = (c_h - display_img.height)//2
-        x0 = max(x0,img_left); y0=max(y0,img_top)
-        x1 = min(x1,img_left+display_img.width); y1=min(y1,img_top+display_img.height)
-        if x1<=x0 or y1<=y0:
-            return orig_img.copy()
-        disp_x0,disp_y0=x0-img_left,y0-img_top
-        disp_x1,disp_y1=x1-img_left,y1-img_top
-        ori_x0=int(round(disp_x0*scale_x)); ori_y0=int(round(disp_y0*scale_y))
-        ori_x1=int(round(disp_x1*scale_x)); ori_y1=int(round(disp_y1*scale_y))
-        return orig_img.crop((ori_x0,ori_y0,ori_x1,ori_y1))
-    else:
-        return orig_img.copy()
+    x0,y0 = crop_start; x1,y1 = crop_end
+    x0,x1 = sorted([x0,x1]); y0,y1 = sorted([y0,y1])
+    c_w = canvas.winfo_width(); c_h = canvas.winfo_height()
+    img_left = (c_w - display_img.width)//2; img_top = (c_h - display_img.height)//2
+    x0 = max(x0,img_left); y0=max(y0,img_top)
+    x1 = min(x1,img_left+display_img.width); y1=min(y1,img_top+display_img.height)
+    if x1<=x0 or y1<=y0:
+        return None
+    disp_x0,disp_y0=x0-img_left,y0-img_top
+    disp_x1,disp_y1=x1-img_left,y1-img_top
+    ori_x0=int(round(disp_x0*scale_x)); ori_y0=int(round(disp_y0*scale_y))
+    ori_x1=int(round(disp_x1*scale_x)); ori_y1=int(round(disp_y1*scale_y))
+    return orig_img.crop((ori_x0,ori_y0,ori_x1,ori_y1))
+
+def get_current_roi():
+    """
+    Preferred ROI to use now:
+      1) if a persisted active_roi exists → use it
+      2) else if a crop rectangle exists → use that
+      3) else fall back to the full original image
+    """
+    if active_roi is not None:
+        return active_roi.copy()
+    rect_roi = _roi_from_current_rect()
+    if rect_roi is not None:
+        return rect_roi
+    return orig_img.copy() if orig_img is not None else None
 
 
 def finish_and_classify():
+    global active_roi
     if orig_img is None:
         headline.config(text="Please upload or drop an image first."); return
-    roi = get_current_roi()
-    preds, _ = classify_pil(roi, topk=8)
+
+    # prefer current rect; if none, use orig
+    rect_roi = _roi_from_current_rect()
+    roi = rect_roi if rect_roi is not None else orig_img.copy()
+
+    # persist this ROI so Explain uses the same region even after crop clears
+    active_roi = roi.copy()
+
+    # Build optional label filter from UI
+    selected_cat = category_var.get()
+    allow_labels = None
+    if selected_cat == "Tops":
+        allow_labels = [l for l in LABELS if l in TOPS_SET]
+    elif selected_cat == "Bottoms":
+        allow_labels = [l for l in LABELS if l in BOTTOMS_SET]
+    elif selected_cat == "Dresses":
+        allow_labels = [l for l in LABELS if l in DRESSES_SET]
+
+    # Optional upper-body bias: downweight bottoms
+    downweight = 0.6 if upper_bias_var.get() else 1.0
+
+    start_t = time.perf_counter()
+    preds, _ = classify_pil(roi, topk=topk_var.get(), allow_labels=allow_labels, downweight_bottoms=downweight)
+    infer_ms = (time.perf_counter() - start_t) * 1000.0
     set_conf_table(preds)
     top1_label, top1_conf = preds[0]
-    headline.config(text=f"Predicted: {top1_label} ({top1_conf:.2f}%)")
+    bias_note = " · bias↑" if downweight < 1.0 else ""
+    cat_note = f" · {selected_cat}" if selected_cat != "All" else ""
+    headline.config(text=f"Predicted: {top1_label} ({top1_conf:.2f}%) · {infer_ms:.0f} ms{cat_note}{bias_note}")
+
+    # show ROI (this clears the crop rect, but we have active_roi stored)
     set_main_image(roi)
 
 
 def explain_heatmap():
-    """Run Grad-CAM on the current ROI for the top-1 predicted class and show overlay."""
+    """Run Grad-CAM on the active ROI (or current crop, or full img)."""
     if orig_img is None:
         headline.config(text="Please upload or drop an image first."); return
+
     roi = get_current_roi()
+    if roi is None:
+        headline.config(text="No image available."); return
+
     # get top-1 class for this ROI
     _, top1_idx = classify_pil(roi, topk=1)
+    start_t = time.perf_counter()
     overlay = gradcam_on_pil(roi, target_class=top1_idx, alpha=0.45)
+    cam_ms = (time.perf_counter() - start_t) * 1000.0
+
+    # do NOT overwrite active_roi; we want to keep the ROI stable
     set_main_image(overlay)
-    headline.config(text="Explanation heatmap (Grad-CAM) for top-1 class")
+    headline.config(text=f"Explanation heatmap (Grad-CAM) · {cam_ms:.0f} ms")
+
+
+# ----------------------
+# Menu actions & helpers
+# ----------------------
+def save_current_view():
+    # Save whatever is displayed on the canvas (display_img) to a PNG
+    if display_img is None:
+        messagebox.showinfo("Save", "Nothing to save yet. Load and classify first.")
+        return
+    default = Path.cwd() / "aai3001_result.png"
+    fp = filedialog.asksaveasfilename(title="Save current view", defaultextension=".png",
+                                      initialfile=str(default.name),
+                                      filetypes=[("PNG", "*.png")])
+    if not fp:
+        return
+    try:
+        display_img.save(fp)
+        messagebox.showinfo("Saved", f"Saved view to\n{fp}")
+    except Exception as e:
+        messagebox.showerror("Save failed", str(e))
+
+def show_about():
+    messagebox.showinfo(
+        "About",
+        "AAI3001 Group 10 — Fashion Product Type Classifier\n"
+        "ResNet50 · Grad-CAM · Tkinter UI\n"
+        "UX-enhanced edition"
+    )
+
+def open_help():
+    messagebox.showinfo(
+        "Help",
+        "1) Upload or drop an image.\n"
+        "2) Drag to draw a crop box (optional).\n"
+        "3) Click ‘Finish (Classify)’ or press Enter.\n"
+        "4) Click ‘Explain (Heatmap)’ to see Grad-CAM.\n\n"
+        "Shortcuts:\n"
+        "  Ctrl+O — Upload\n  Enter — Classify\n  H — Heatmap\n  R — Reset crop\n  Ctrl+S — Save view"
+    )
 
 
 # ----------------------
@@ -296,38 +495,70 @@ def explain_heatmap():
 # ----------------------
 RootCls = TkinterDnD.Tk if HAS_DND else tk.Tk
 root = RootCls()
-root.title("AAI3001 Group 10 Fashion Product Type Classifier Tool")
+root.title("AAI3001 Group 10 · Fashion Product Type Classifier")
 
 try:
     root.state("zoomed")
 except:
     try: root.attributes("-zoomed", True)
     except: root.geometry("1200x800")
-root.configure(bg="#f8fafc")
+root.configure(bg=APP_COLORS["surface"]) 
 
-title = tk.Label(
+# Create styles/theme
+create_styles(root)
+
+title = ttk.Label(
     root,
-    text="AAI3001 Group 10 Fashion Product Type Classifier",
-    font=("Segoe UI", 18, "bold"),
-    bg="#f8fafc", fg="#111827"
+    text="AAI3001 Group 10 · Fashion Product Type Classifier",
+    style="Title.TLabel"
 )
-title.pack(pady=(10, 4))
+title.pack(pady=(10, 6))
+
+# Menu bar
+menubar = tk.Menu(root)
+file_menu = tk.Menu(menubar, tearoff=0)
+file_menu.add_command(label="Upload…	Ctrl+O", command=upload_image)
+file_menu.add_command(label="Save view…	Ctrl+S", command=save_current_view)
+file_menu.add_separator()
+file_menu.add_command(label="Exit", command=root.destroy)
+menubar.add_cascade(label="File", menu=file_menu)
+
+help_menu = tk.Menu(menubar, tearoff=0)
+help_menu.add_command(label="How to use", command=open_help)
+help_menu.add_command(label="About", command=show_about)
+menubar.add_cascade(label="Help", menu=help_menu)
+
+root.config(menu=menubar)
 
 # Controls bar
-ctrl = tk.Frame(root, bg="#f8fafc"); ctrl.pack(pady=4)
-tk.Button(ctrl, text="Upload Image", command=upload_image,
-          bg="#10b981", fg="white", font=("Segoe UI", 12), padx=14, pady=6).grid(row=0, column=0, padx=6)
-tk.Button(ctrl, text="Reset Crop", command=reset_crop,
-          bg="#6b7280", fg="white", font=("Segoe UI", 12), padx=10, pady=6).grid(row=0, column=1, padx=6)
-tk.Button(ctrl, text="Finish (Classify)", command=finish_and_classify,
-          bg="#2563eb", fg="white", font=("Segoe UI", 12), padx=14, pady=6).grid(row=0, column=2, padx=6)
-tk.Button(ctrl, text="Explain (Heatmap)", command=explain_heatmap,
-          bg="#f59e0b", fg="white", font=("Segoe UI", 12), padx=14, pady=6).grid(row=0, column=3, padx=6)
+ctrl = ttk.Frame(root, style="App.TFrame"); ctrl.pack(pady=6)
+ttk.Button(ctrl, text="Upload Image", command=upload_image, style="Accent.TButton").grid(row=0, column=0, padx=6)
+ttk.Button(ctrl, text="Reset Crop", command=reset_crop, style="Secondary.TButton").grid(row=0, column=1, padx=6)
+ttk.Button(ctrl, text="Finish (Classify)", command=finish_and_classify, style="Primary.TButton").grid(row=0, column=2, padx=6)
+ttk.Button(ctrl, text="Explain (Heatmap)", command=explain_heatmap, style="Warn.TButton").grid(row=0, column=3, padx=6)
+
+# Top-K selector
+ttk.Label(ctrl, text="Top-K:", style="App.TLabel").grid(row=0, column=4, padx=(14,4))
+topk_var = tk.IntVar(value=8)
+topk_spin = ttk.Spinbox(ctrl, from_=1, to=20, width=4, textvariable=topk_var)
+topk_spin.grid(row=0, column=5, padx=4)
+
+# Category filter
+ttk.Label(ctrl, text="Category:", style="App.TLabel").grid(row=0, column=6, padx=(14,4))
+category_var = tk.StringVar(value="All")
+category_combo = ttk.Combobox(ctrl, values=["All", "Tops", "Bottoms", "Dresses"],
+                              state="readonly", width=10, textvariable=category_var)
+category_combo.grid(row=0, column=7, padx=4)
+
+# Upper-body bias checkbox
+upper_bias_var = tk.IntVar(value=1)
+upper_bias_chk = ttk.Checkbutton(ctrl, text="Upper-body bias", variable=upper_bias_var)
+upper_bias_chk.grid(row=0, column=8, padx=(12,4))
 
 # Main layout
-main = tk.Frame(root, bg="#f8fafc"); main.pack(fill="both", expand=True, padx=10, pady=8)
-left = tk.Frame(main, bg="#f8fafc"); left.pack(side="left", fill="both", expand=True)
-canvas = tk.Canvas(left, bg="#e5e7eb", highlightthickness=1, highlightbackground="#d1d5db")
+main = ttk.Frame(root, style="App.TFrame"); main.pack(fill="both", expand=True, padx=10, pady=8)
+left = ttk.Frame(main, style="App.TFrame"); left.pack(side="left", fill="both", expand=True)
+canvas = tk.Canvas(left, bg=APP_COLORS["muted"], highlightthickness=1, highlightbackground="#334155")
 canvas.pack(fill="both", expand=True)
 
 if HAS_DND:
@@ -339,19 +570,32 @@ canvas.bind("<ButtonPress-1>", on_mouse_down)
 canvas.bind("<B1-Motion>", on_mouse_drag)
 canvas.bind("<ButtonRelease-1>", on_mouse_up)
 
-headline = tk.Label(left, text="", font=("Segoe UI", 14, "bold"),
-                    bg="#f8fafc", fg="#0f766e")
+headline = ttk.Label(left, text="", style="App.TLabel", font=("Segoe UI", 14, "bold"))
 headline.pack(pady=(6,0))
 
 # Right: predictions
-right = tk.Frame(main, bg="#f8fafc"); right.pack(side="right", fill="y")
-tk.Label(right, text="Top Predictions", font=("Segoe UI", 16, "bold"),
-         bg="#f8fafc", fg="#111827").pack(pady=(0,6))
+right = ttk.Frame(main, style="App.TFrame"); right.pack(side="right", fill="y")
+ttk.Label(right, text="Top Predictions", style="Title.TLabel").pack(pady=(0,6))
 
-conf_tbl = ttk.Treeview(right, columns=("rank","label","prob"), show="headings", height=18)
-conf_tbl.heading("rank", text="#");      conf_tbl.column("rank", width=40, anchor="center")
-conf_tbl.heading("label", text="Class"); conf_tbl.column("label", width=200, anchor="w")
-conf_tbl.heading("prob", text="Conf.");  conf_tbl.column("prob", width=90, anchor="e")
+conf_tbl = ttk.Treeview(right, columns=("rank","label","bar","prob"), show="headings", height=18, style="App.Treeview")
+conf_tbl.heading("rank", text="#", anchor="center");      conf_tbl.column("rank", width=40, anchor="center")
+conf_tbl.heading("label", text="Class");                    conf_tbl.column("label", width=180, anchor="w")
+conf_tbl.heading("bar", text="");                           conf_tbl.column("bar", width=160, anchor="w")
+conf_tbl.heading("prob", text="Conf.");                     conf_tbl.column("prob", width=90, anchor="e")
 conf_tbl.pack(padx=6, pady=6, fill="y")
+
+# Status bar
+status_var = tk.StringVar(value="Drop an image or click ‘Upload Image’.")
+status = ttk.Label(root, textvariable=status_var, style="App.TLabel")
+status.pack(fill="x", padx=10, pady=(0,8))
+
+# Keyboard shortcuts
+root.bind_all("<Control-o>", lambda e: upload_image())
+root.bind_all("<Control-s>", lambda e: save_current_view())
+root.bind_all("<Return>", lambda e: finish_and_classify())
+root.bind_all("h", lambda e: explain_heatmap())
+root.bind_all("H", lambda e: explain_heatmap())
+root.bind_all("r", lambda e: reset_crop())
+root.bind_all("R", lambda e: reset_crop())
 
 root.mainloop()
