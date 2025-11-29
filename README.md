@@ -17,6 +17,8 @@
 
 ## [Live Demo on Hugging Face](https://huggingface.co/spaces/liangjinwong/fashion-detection-system)
 
+**Note:** The web demo supports image uploads only. For live webcam detection and full features, run the desktop application locally.
+
 ### **Multi-Model AI System** | **31 Fashion Classes** | **Real-Time Detection**
 
 [Features](#key-features) • [Models](#models--performance) • [Installation](#installation) • [GUI Guide](#gui-application) • [Training](#training-details)
@@ -320,7 +322,7 @@ freeze: 10 layers
     -   **Final mAP50: 0.80** (Production Model)
     -   Shorts Accuracy: Improved to ~100% on test set.
 
-### Phase 3: Accessory Detector (YOLOv8)
+### Phase 2: Accessory Detector (YOLOv8)
 
 **Training Configuration:**
 ```yaml
@@ -367,7 +369,7 @@ batch: 16
 
 ---
 
-## 🔄 Iterative Fine-Tuning with Roboflow
+## Iterative Fine-Tuning with Roboflow
 
 ### Problem Identified
 During testing, we noticed the "Shorts" class had significant misclassifications (accuracy dropped to ~60%).
@@ -423,12 +425,11 @@ python app.py
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 AAI3001_P10/
-├── app_with_preprocessing.py       # Full GUI (Phase 1+2+3)
-├── app_huggingface.py              # Gradio web app
+├── app_with_preprocessing.py       # Full GUI (Phase 1+2)
 │
 ├── best_model_resnet50_extended_final.pth  # Phase 1 weights
 ├── best_model_shoes.pth                    # Shoe classifier weights
@@ -441,29 +442,11 @@ AAI3001_P10/
 │       │   └── weights/best.pt
 │       └── phase3_accessories_v6/  # Accessory detector (YOLOv8)
 │           └── weights/best.pt
-│
-├── hf_deploy/                      # Hugging Face deployment
-│   ├── app.py
-│   ├── requirements.txt
-│   ├── README.md
-│   └── models/
-│       ├── phase2_clothes_best.pt
-│       ├── phase3_accessories_best.pt
-│       └── best_model_shoes.pth
-│
 ├── Phase2_DeepFashion2_YOLO_Detection.ipynb
 ├── Phase2_Fashionpedia_YOLO_Setup.ipynb
 ├── Phase2_Shoe_Classifier_Training.ipynb
 ├── Roboflow_FineTune.ipynb         # Iterative fine-tuning notebook (Key Training File)
 ├── AAI3001_model.ipynb             # Phase 1 training notebook
-│
-├── MODEL_PROVENANCE.md             # Detailed model history & audit trail
-├── VERIFICATION_REPORT.md          # System verification results
-│
-├── My First Project.v6i.yolov8/    # Roboflow dataset (post-AL)
-├── deepfashion2_yolo_v2_optimized/ # DeepFashion2 YOLO format
-├── fashionpedia_yolo/              # Fashionpedia YOLO format
-│
 ├── requirements.txt
 └── README.md
 ```
@@ -505,7 +488,7 @@ Grad-CAM visualization shows which regions the model focuses on for classificati
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **Singapore Institute of Technology** - AAI3001 Course
 - **Ultralytics** - YOLOv8 framework
