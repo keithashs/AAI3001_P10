@@ -1,0 +1,10 @@
+# Git LFS Configuration for Hugging Face Spaces
+# This file tells Git LFS to track large model files
+# PyTorch model files
+*.pt filter=lfs diff=lfs merge=lfs -text
+*.pth filter=lfs diff=lfs merge=lfs -text
+*.bin filter=lfs diff=lfs merge=lfs -text
+# Pickle files (label encoders)
+*.pkl filter=lfs diff=lfs merge=lfs -text
+# ONNX models (if you export later)
+*.onnx filter=lfs diff=lfs merge=lfs -text

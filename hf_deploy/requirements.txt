@@ -1,0 +1,12 @@
+# Core - Using stable Gradio 3.x
+gradio==3.50.2
+torch>=2.0.0
+torchvision>=0.15.0
+numpy>=1.24.0
+
+# Detection
+ultralytics>=8.0.0
+
+# Image Processing
+opencv-python-headless>=4.8.0
+Pillow>=10.0.0
