@@ -1,17 +1,17 @@
 # Phase 2 Model Provenance & Evolution
 
-## ⚠️ Critical Discovery
+## Critical Discovery
 
-During documentation, we discovered that **`train_improved` is a failed training run** with 0% validation metrics (mAP50=0, Precision=0, Recall=0). However, the fine-tuned version `phase2_clothes_v6` recovered and achieved the best performance.
+During documentation, we discovered that `train_improved` is a failed training run with 0% validation metrics (mAP50=0, Precision=0, Recall=0). However, the fine-tuned version `phase2_clothes_v6` recovered and achieved the best performance.
 
 ## Model Comparison (Actual Metrics)
 
 | Model | mAP50 | Precision | Recall | Status |
 |-------|-------|-----------|--------|--------|
-| `deepfashion2_yolo` | 0.369 | 0.491 | 0.482 | ✅ V1 - Working |
-| `deepfashion2_yolo_v2_optimized` | 0.294 | 0.319 | 0.572 | ✅ V2 - Working |
-| `train_improved` | **0.000** | **0.000** | **0.000** | ❌ **FAILED** |
-| `finetune/phase2_clothes_v6` | **0.801** | **0.839** | **0.720** | ✅ **PRODUCTION** |
+| `deepfashion2_yolo` | 0.369 | 0.491 | 0.482 | V1 - Working |
+| `deepfashion2_yolo_v2_optimized` | 0.294 | 0.319 | 0.572 | V2 - Working |
+| `train_improved` | **0.000** | **0.000** | **0.000** | **FAILED** |
+| `finetune/phase2_clothes_v6` | **0.801** | **0.839** | **0.720** | **PRODUCTION** |
 
 ## What Went Wrong with `train_improved`
 
@@ -58,13 +58,13 @@ Phase 1: ResNet50 Classification (15 classes, 91.45% accuracy)
     ↓
 Phase 2: YOLOv8 Detection (13 classes)
     │
-    ├── deepfashion2_yolo/           [V1: 50 epochs, mAP50=0.369] ✅
+    ├── deepfashion2_yolo/           [V1: 50 epochs, mAP50=0.369]
     │
-    ├── deepfashion2_yolo_v2_optim/  [V2: 31 epochs, mAP50=0.294] ✅
+    ├── deepfashion2_yolo_v2_optim/  [V2: 31 epochs, mAP50=0.294]
     │
-    ├── train_improved/              [100 epochs, mAP50=0.000] ❌ FAILED
+    ├── train_improved/              [100 epochs, mAP50=0.000] FAILED
     │
-    └── finetune/phase2_clothes_v6/  [30 epochs, mAP50=0.801] ✅ PRODUCTION
+    └── finetune/phase2_clothes_v6/  [30 epochs, mAP50=0.801] PRODUCTION
     ↓
 Phase 2: Fashionpedia Accessories (11 classes)
 ```

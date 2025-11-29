@@ -1,4 +1,4 @@
-# 👗 Fashion Intelligence Suite
+# Fashion Intelligence Suite
 ### AAI3001 Deep Learning for Computer Vision | Group 10
 
 **Singapore Institute of Technology**
@@ -15,28 +15,28 @@
 
 <div align="center">
 
-## 🚀 [Live Demo on Hugging Face](https://huggingface.co/spaces/liangjinwong/fashion-detection-system)
+## [Live Demo on Hugging Face](https://huggingface.co/spaces/liangjinwong/fashion-detection-system)
 
 ### **Multi-Model AI System** | **31 Fashion Classes** | **Real-Time Detection**
 
-[Features](#-key-features) • [Models](#-models--performance) • [Installation](#-installation) • [GUI Guide](#-gui-application) • [Training](#-training-details)
+[Features](#key-features) • [Models](#models--performance) • [Installation](#installation) • [GUI Guide](#gui-application) • [Training](#training-details)
 
 </div>
 
 ---
 
 ## Table of Contents
-- [Project Overview](#-project-overview)
-- [Key Features](#-key-features)
-- [Models & Performance](#-models--performance)
-- [System Architecture](#-system-architecture)
-- [Installation](#-installation)
-- [GUI Application](#-gui-application)
-- [Training Details](#-training-details)
-- [Dataset Information](#-dataset-information)
-- [Iterative Fine-Tuning](#-iterative-fine-tuning-with-roboflow)
-- [Web Deployment](#-web-deployment)
-- [Project Structure](#-project-structure)
+- [Project Overview](#project-overview)
+- [Key Features](#key-features)
+- [Models & Performance](#models--performance)
+- [System Architecture](#system-architecture)
+- [Installation](#installation)
+- [GUI Application](#gui-application)
+- [Training Details](#training-details)
+- [Dataset Information](#dataset-information)
+- [Iterative Fine-Tuning](#iterative-fine-tuning-with-roboflow)
+- [Web Deployment](#web-deployment)
+- [Project Structure](#project-structure)
 
 ---
 
@@ -297,13 +297,13 @@ python app_with_preprocessing.py
 
 **Model Provenance & Reproducibility Note:**
 The final production model (`phase2_clothes_v6`) is the result of a two-stage training process:
-1.  **Base Training (`train_improved`):** Trained on Nov 13, 2024 (100 epochs). *Note: The original training notebook for this stage was lost, but the configuration is preserved in `runs/train_improved/args.yaml`.*
+1.  **Base Training (`train_improved`):** Trained on Nov 14, 2025 (100 epochs). *Note: The original training notebook for this stage was lost, but the configuration is preserved in `runs/train_improved/args.yaml`.*
 2.  **Fine-Tuning:** The base model was fine-tuned using the `Roboflow_FineTune.ipynb` notebook, which recovered the model from initial validation issues to achieve high performance.
 
 **Training Configuration (Fine-Tuning Stage):**
 ```yaml
 model: runs/train_improved/weights/best.pt (Base Model)
-data: Roboflow v6 (DeepFashion2 + Edge Cases)
+data: Roboflow v6i (Custom annotated edge cases)
 epochs: 30
 imgsz: 640
 batch: 8
@@ -326,7 +326,7 @@ freeze: 10 layers
 ```yaml
 model: yolov8s.pt
 data: Fashionpedia (11 classes)
-epochs: 30
+epochs: 50
 imgsz: 640
 batch: 16
 ```
