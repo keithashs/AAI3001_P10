@@ -1,4 +1,4 @@
-# AAI3001 Phase 1: Fashion Product Type Classifier - Requirements
+# AAI3001 Phase 1 & 2: Fashion Product Type Classifier & Object Detection - Requirements
 # Group 10 - Deep Learning Computer Vision Project
 # Python 3.8+ required
 
@@ -8,6 +8,11 @@
 torch>=2.0.0
 torchvision>=0.15.0
 torchaudio>=2.0.0
+
+# ============================================================================
+# Object Detection (Phase 2)
+# ============================================================================
+ultralytics>=8.0.0  # YOLOv8 for fashion object detection
 
 # ============================================================================
 # Computer Vision & Image Processing

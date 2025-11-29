@@ -25,7 +25,7 @@
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 - [Project Overview](#-project-overview)
 - [Key Features](#-key-features)
 - [Models & Performance](#-models--performance)
@@ -34,20 +34,20 @@
 - [GUI Application](#-gui-application)
 - [Training Details](#-training-details)
 - [Dataset Information](#-dataset-information)
-- [Active Learning](#-active-learning-with-roboflow)
+- [Iterative Fine-Tuning](#-iterative-fine-tuning-with-roboflow)
 - [Web Deployment](#-web-deployment)
 - [Project Structure](#-project-structure)
 
 ---
 
-## 🎯 Project Overview
+## Project Overview
 
 The **Fashion Intelligence Suite** is a comprehensive multi-model AI system for fashion item detection and classification. Built as a course project for AAI3001 (Deep Learning for Computer Vision), it demonstrates advanced computer vision techniques including:
 
 - **Object Detection** using fine-tuned YOLOv8
 - **Image Classification** using transfer learning with ResNet50  
 - **Multi-stage Pipeline** for hierarchical fashion analysis
-- **Active Learning** with Roboflow for continuous improvement
+- **Iterative Fine-Tuning** with Roboflow for targeted improvement
 - **Real-time Inference** via webcam and image upload
 
 ### What Makes This Project Unique
@@ -62,26 +62,22 @@ The **Fashion Intelligence Suite** is a comprehensive multi-model AI system for 
    - Skin detection (filters out false positives on exposed skin)
    - Duplicate removal between overlapping detectors
 
-3. **Style Classification:**
-   - Rule-based outfit style analysis (Casual, Smart Casual, Business Formal, Sporty, Elegant, Street Style)
-
 ---
 
-## ✨ Key Features
+## Key Features
 
 | Feature | Description |
 |---------|-------------|
-| 🎯 **Multi-Model Detection** | Three specialized models for comprehensive fashion detection |
-| 📸 **Dual Input Modes** | Image upload + Live webcam detection |
-| 🔍 **Grad-CAM Visualization** | Explainable AI showing model attention areas |
-| 👗 **Style Classification** | Automatic outfit style analysis |
-| 🎨 **Smart Preprocessing** | Image enhancement for low-quality webcams |
-| 🌐 **Web Deployment** | Hugging Face Spaces for easy access |
-| 🔄 **Active Learning** | Continuous improvement via Roboflow |
+| **Multi-Model Detection** | Three specialized models for comprehensive fashion detection |
+| **Dual Input Modes** | Image upload + Live webcam detection |
+| **Grad-CAM Visualization** | Explainable AI showing model attention areas for classification |
+| **Smart Preprocessing** | Image enhancement for low-quality webcams |
+| **Web Deployment** | Hugging Face Spaces for easy access |
+| **Iterative Fine-Tuning** | Targeted improvement via Roboflow - manually identifying edge cases and misclassifications, collecting additional data, and retraining the model |
 
 ---
 
-## 🧠 Models & Performance
+## Models & Performance
 
 ### Model Summary
 
@@ -98,7 +94,7 @@ The **Fashion Intelligence Suite** is a comprehensive multi-model AI system for 
 <tr>
 <td valign="top" width="33%">
 
-**👕 Clothing (13 classes)**
+**Clothing (13 classes)**
 - Short Sleeve Top
 - Long Sleeve Top
 - Vest
@@ -116,7 +112,7 @@ The **Fashion Intelligence Suite** is a comprehensive multi-model AI system for 
 </td>
 <td valign="top" width="33%">
 
-**👜 Accessories (11 classes)**
+**Accessories (11 classes)**
 - Jacket
 - Coat
 - Glasses
@@ -132,7 +128,7 @@ The **Fashion Intelligence Suite** is a comprehensive multi-model AI system for 
 </td>
 <td valign="top" width="33%">
 
-**👟 Shoe Types (7 classes)**
+**Shoe Types (7 classes)**
 - Casual Shoes
 - Flats
 - Flip Flops
@@ -147,7 +143,7 @@ The **Fashion Intelligence Suite** is a comprehensive multi-model AI system for 
 
 ### Training Curves (Phase 2 - Clothes Detector)
 
-After Active Learning with Roboflow v6 dataset:
+After Iterative Fine-Tuning with Roboflow v6 dataset:
 
 | Epoch | mAP50 | Precision | Recall |
 |-------|-------|-----------|--------|
@@ -158,7 +154,7 @@ After Active Learning with Roboflow v6 dataset:
 
 ---
 
-## 🏗 System Architecture
+## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -166,7 +162,7 @@ After Active Learning with Roboflow v6 dataset:
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐       │
-│  │   PHASE 1    │    │   PHASE 2    │    │   PHASE 3    │       │
+│  │   PHASE 1    │    │   PHASE 2    │    │   PHASE 2    │       │
 │  │  ResNet50    │    │   YOLOv8s    │    │   YOLOv8s    │       │
 │  │  Classifier  │    │   Clothes    │    │ Accessories  │       │
 │  │  (15 types)  │    │  (13 types)  │    │  (11 types)  │       │
@@ -205,7 +201,7 @@ After Active Learning with Roboflow v6 dataset:
 
 ---
 
-## 💻 Installation
+## Installation
 
 ### Prerequisites
 - Python 3.8+
@@ -246,16 +242,12 @@ gradio>=3.50.0  # For web deployment
 
 ---
 
-## 🖥 GUI Application
+## GUI Application
 
 ### Running the Desktop App
 
 ```bash
-# Full-featured GUI with all models
 python app_with_preprocessing.py
-
-# Or the original Phase 1 GUI
-python app.py
 ```
 
 ### GUI Features
@@ -274,7 +266,7 @@ python app.py
 
 ### GUI Screenshots
 
-| Phase 1 Classification | Phase 2/3 Detection |
+| Phase 1 Classification | Phase 2 Detection |
 |------------------------|---------------------|
 | Drag & drop image → Crop → Classify | Webcam or image → Multi-model detection |
 | Grad-CAM heatmap visualization | Bounding boxes with class labels |
@@ -282,7 +274,7 @@ python app.py
 
 ---
 
-## 📚 Training Details
+## Training Details
 
 ### Phase 1: Fashion Classifier (ResNet50)
 
@@ -303,22 +295,30 @@ python app.py
 
 ### Phase 2: Clothes Detector (YOLOv8)
 
-**Training Configuration:**
+**Model Provenance & Reproducibility Note:**
+The final production model (`phase2_clothes_v6`) is the result of a two-stage training process:
+1.  **Base Training (`train_improved`):** Trained on Nov 13, 2024 (100 epochs). *Note: The original training notebook for this stage was lost, but the configuration is preserved in `runs/train_improved/args.yaml`.*
+2.  **Fine-Tuning:** The base model was fine-tuned using the `Roboflow_FineTune.ipynb` notebook, which recovered the model from initial validation issues to achieve high performance.
+
+**Training Configuration (Fine-Tuning Stage):**
 ```yaml
-model: yolov8s.pt
-data: DeepFashion2 (13 classes)
+model: runs/train_improved/weights/best.pt (Base Model)
+data: Roboflow v6 (DeepFashion2 + Edge Cases)
 epochs: 30
 imgsz: 640
-batch: 16
-optimizer: auto
-augment: True
+batch: 8
+optimizer: AdamW
+freeze: 10 layers
 ```
 
-**Active Learning Iterations:**
-1. Initial training on DeepFashion2
-2. Error analysis → Identified "Shorts" misclassifications
-3. Roboflow v6 dataset with targeted augmentation
-4. **Final mAP50: 0.80** (improved from 0.77)
+**Iterative Fine-Tuning Process:**
+1.  **Base Training:** Initial training on DeepFashion2 dataset.
+2.  **Manual Error Analysis:** Identified significant misclassifications in "Shorts" and "Skirts".
+3.  **Targeted Data Collection:** Collected additional edge case data via Roboflow (v6 dataset).
+4.  **Fine-Tuning:** Retrained the base model using `Roboflow_FineTune.ipynb`.
+5.  **Result:**
+    -   **Final mAP50: 0.80** (Production Model)
+    -   Shorts Accuracy: Improved to ~100% on test set.
 
 ### Phase 3: Accessory Detector (YOLOv8)
 
@@ -343,7 +343,7 @@ batch: 16
 
 ---
 
-## 📊 Dataset Information
+## Dataset Information
 
 ### DeepFashion2 (Clothes Detection)
 - **Source:** [DeepFashion2 Dataset](https://github.com/switchablenorms/DeepFashion2)
@@ -367,21 +367,28 @@ batch: 16
 
 ---
 
-## 🔄 Active Learning with Roboflow
+## 🔄 Iterative Fine-Tuning with Roboflow
 
 ### Problem Identified
 During testing, we noticed the "Shorts" class had significant misclassifications (accuracy dropped to ~60%).
 
-### Solution: Roboflow Active Learning Pipeline
+### Solution: Manual Error Analysis & Targeted Data Collection
 
-1. **Error Collection:** Gathered misclassified samples
-2. **Roboflow Upload:** Created v6 dataset with:
-   - 200+ additional "Shorts" images
-   - Targeted augmentation (brightness, rotation)
-3. **Retraining:** Fine-tuned on combined dataset
+> **Note:** This approach is NOT "Active Learning" (where the model automatically selects uncertain samples). Instead, we manually analyzed misclassifications, collected additional edge case data, and fine-tuned the model - a process more accurately called **Iterative Fine-Tuning** or **Error-Driven Data Augmentation**.
+
+1. **Manual Error Analysis:** Reviewed misclassified samples and identified patterns
+2. **Targeted Data Collection:** Used Roboflow to:
+   - Collect 200+ additional "Shorts" images (edge cases)
+   - Apply targeted augmentation (brightness, rotation)
+3. **Fine-Tuning:** Retrained model on augmented dataset
 4. **Results:**
    - Shorts accuracy: **100%** (up from 60%)
    - Overall mAP50: **0.80** (up from 0.77)
+
+### Current Limitations (Catastrophic Forgetting)
+While fine-tuning significantly improved detection for "Shorts" and "Trousers", the model experienced **catastrophic forgetting** for other classes, especially those involving dresses, as they were absent from the fine-tuning dataset.
+
+**Planned Fix for future iterations:** Implement **Data Mixing** (Replay Training) by merging a subset of original DeepFashion2 dress samples into the Roboflow dataset for the next training iteration.
 
 ### Roboflow Dataset Versions
 - `My First Project.v5i.yolov8/` - Initial version
@@ -389,7 +396,7 @@ During testing, we noticed the "Shorts" class had significant misclassifications
 
 ---
 
-## 🌐 Web Deployment
+## Web Deployment
 
 ### Hugging Face Spaces
 
@@ -420,7 +427,6 @@ python app.py
 
 ```
 AAI3001_P10/
-├── app.py                          # Main GUI (Phase 1)
 ├── app_with_preprocessing.py       # Full GUI (Phase 1+2+3)
 ├── app_huggingface.py              # Gradio web app
 │
@@ -448,8 +454,11 @@ AAI3001_P10/
 ├── Phase2_DeepFashion2_YOLO_Detection.ipynb
 ├── Phase2_Fashionpedia_YOLO_Setup.ipynb
 ├── Phase2_Shoe_Classifier_Training.ipynb
-├── Roboflow_FineTune.ipynb         # Active Learning notebook
+├── Roboflow_FineTune.ipynb         # Iterative fine-tuning notebook (Key Training File)
 ├── AAI3001_model.ipynb             # Phase 1 training notebook
+│
+├── MODEL_PROVENANCE.md             # Detailed model history & audit trail
+├── VERIFICATION_REPORT.md          # System verification results
 │
 ├── My First Project.v6i.yolov8/    # Roboflow dataset (post-AL)
 ├── deepfashion2_yolo_v2_optimized/ # DeepFashion2 YOLO format
@@ -461,7 +470,7 @@ AAI3001_P10/
 
 ---
 
-## 🔬 Technical Highlights
+## Technical Highlights
 
 ### 1. Multi-Model Pipeline
 Three specialized models work together, each optimized for its specific task rather than one general-purpose model.
@@ -486,12 +495,12 @@ Grad-CAM visualization shows which regions the model focuses on for classificati
 
 ---
 
-## 📈 Future Improvements
+## Future Improvements
 
 1. **Segmentation Integration:** Add instance segmentation for precise clothing boundaries
 2. **Try-On Feature:** Virtual try-on using generative models
 3. **Mobile Deployment:** TensorFlow Lite / ONNX for mobile apps
-4. **More Accessory Classes:** Expand to jewelry, watches, etc.
+4. **More Accessory Classes:** Expand to jewelry, etc.
 5. **Outfit Recommendation:** AI-powered styling suggestions
 
 ---
@@ -500,21 +509,16 @@ Grad-CAM visualization shows which regions the model focuses on for classificati
 
 - **Singapore Institute of Technology** - AAI3001 Course
 - **Ultralytics** - YOLOv8 framework
-- **Roboflow** - Dataset management and active learning
+- **Roboflow** - Dataset management and iterative fine-tuning
 - **Hugging Face** - Model deployment platform
 - **DeepFashion2 & Fashionpedia** - Open datasets
 
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
 <div align="center">
 
-**Built with ❤️ by AAI3001 Group 10**
+**Built by AAI3001 Group 10**
 
 *Singapore Institute of Technology • 2025*
 
