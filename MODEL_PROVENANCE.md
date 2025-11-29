@@ -51,22 +51,20 @@ The production GUI correctly uses the working fine-tuned model:
 PATH_CLOTHES_DETECTOR = r"d:/AAI3001/runs/finetune/phase2_clothes_v6/weights/best.pt"
 ```
 
-## Model Evolution Timeline (Corrected)
+## Model Evolution Timeline
 
 ```
 Phase 1: ResNet50 Classification (15 classes, 91.45% accuracy)
     ↓
 Phase 2: YOLOv8 Detection (13 classes)
     │
-    ├── deepfashion2_yolo/           [V1: 50 epochs, mAP50=0.369]
-    │
-    ├── deepfashion2_yolo_v2_optim/  [V2: 31 epochs, mAP50=0.294]
-    │
-    ├── train_improved/              [100 epochs, mAP50=0.000] FAILED
+    ├── train_improved/              [100 epochs, mAP50=0.000] FAILED (Nov 14, 2025)
     │
     └── finetune/phase2_clothes_v6/  [30 epochs, mAP50=0.801] PRODUCTION
     ↓
-Phase 2: Fashionpedia Accessories (11 classes)
+Phase 3: Fashionpedia Accessories (11 classes, mAP50=0.75)
+    ↓
+Shoe Classifier: ResNet50 (7 classes, 82.5% accuracy)
 ```
 
 ## Known Limitations
