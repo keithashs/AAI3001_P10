@@ -33,7 +33,7 @@ runs/finetune/phase2_clothes_v6/weights/best.pt
 ```
 
 ### Performance
-- **mAP50**: 0.801 (Best of all Phase 2 models!)
+- **mAP50**: 0.801 (Best of all Phase 2 models)
 - **Precision**: 0.839
 - **Recall**: 0.720
 
@@ -43,7 +43,7 @@ runs/finetune/phase2_clothes_v6/weights/best.pt
 - **Epochs**: 30 with patience=10
 - **Freeze**: First 10 layers
 
-## GUI Usage (Correct)
+## GUI Usage
 
 The production GUI correctly uses the working fine-tuned model:
 ```python
@@ -56,15 +56,17 @@ PATH_CLOTHES_DETECTOR = r"d:/AAI3001/runs/finetune/phase2_clothes_v6/weights/bes
 ```
 Phase 1: ResNet50 Classification (15 classes, 91.45% accuracy)
     ↓
-Phase 2: YOLOv8 Detection (13 classes)
+Phase 2: Multi-Model Detection System
     │
-    ├── train_improved/              [100 epochs, mAP50=0.000] FAILED (Nov 14, 2025)
+    ├── Clothes Detector (YOLOv8)
+    │   ├── train_improved/              [100 epochs] (Nov 14, 2025)
+    │   └── finetune/phase2_clothes_v6/  [30 epochs, mAP50=0.801] PRODUCTION
     │
-    └── finetune/phase2_clothes_v6/  [30 epochs, mAP50=0.801] PRODUCTION
-    ↓
-Phase 3: Fashionpedia Accessories (11 classes, mAP50=0.75)
-    ↓
-Shoe Classifier: ResNet50 (7 classes, 82.5% accuracy)
+    ├── Accessory Detector (YOLOv8)
+    │   └── phase3_accessories_v6/       [50 epochs, mAP50=0.75] PRODUCTION
+    │
+    └── Shoe Classifier (ResNet50)
+        └── best_model_shoes.pth         [10 epochs, 82.5% accuracy] PRODUCTION
 ```
 
 ## Known Limitations

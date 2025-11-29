@@ -1072,7 +1072,7 @@ def setup_ui():
     
     # --- TAB 2: Phase 2/3 Object Detection ---
     tab2 = ttk.Frame(notebook)
-    notebook.add(tab2, text="  Phase 2/3: Live Detection  ")
+    notebook.add(tab2, text="  Phase 2: Object Detection  ")
     
     # Main Layout: Video on top (expanding), Controls at bottom
     
